@@ -1,0 +1,11 @@
+<?xml version='1.0'?>
+<mavlink>
+<include>common.xml</include>
+	<messages>
+		<message id="185" name="PAYLOAD"><description>Payload_Drop</description>
+                <field type="int32_t" name="pd_lat"><description>latitude</description></field>
+                <field type="int32_t" name="pd_long"><description>longitude</description></field>
+                <field type="int8_t" name="pd_rad"><description>radius in metres</description></field>
+                </message>
+        </messages>
+</mavlink>

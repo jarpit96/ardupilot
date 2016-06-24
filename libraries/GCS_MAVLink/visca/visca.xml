@@ -1,0 +1,15 @@
+<?xml version='1.0'?>
+<mavlink>
+<include>common.xml</include>
+	<messages>
+		<message id="156" name="VISCA"><description>VISCA</description>
+                <field type="int16_t" name="OZOOM_VISCA"><description>OZOOM_VISCA</description></field>
+		<field type="int16_t" name="DZOOM_VISCA"><description>DZOOM_VISCA</description></field>
+		<field type="int16_t" name="SHUTTER_VISCA"><description>SHUTTER_VISCA</description></field>
+		<field type="int16_t" name="APERTURE_VISCA"><description>APERTURE_VISCA</description></field>
+                <field type="int16_t" name="FOCUS_VISCA"><description>FOCUS_VISCA</description></field>
+		<field type="int16_t" name="EXPOSURE_VISCA"><description>EXPOSURE_VISCA</description></field>
+		<field type="int16_t" name="IRIS_VISCA"><description>IRIS_VISCA</description></field>
+		</message>
+        </messages>
+</mavlink>

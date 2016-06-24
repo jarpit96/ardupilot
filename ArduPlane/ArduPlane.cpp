@@ -62,6 +62,9 @@ const AP_Scheduler::Task Plane::scheduler_tasks[] = {
     SCHED_TASK(read_rangefinder,       50,    100),
     SCHED_TASK(compass_cal_update,     50,    50),
     SCHED_TASK(accel_cal_update,       10,    50),
+    SCHED_TASK(visca_control,          25,    500),  
+    SCHED_TASK(Payload_Drop,           50,    500),
+    
 #if OPTFLOW == ENABLED
     SCHED_TASK(update_optical_flow,    50,    50),
 #endif
@@ -89,7 +92,9 @@ const AP_Scheduler::Task Plane::scheduler_tasks[] = {
 
 void Plane::setup() 
 {
-    cliSerial = hal.console;
+    hal.rcout->enable_ch(5);
+    
+	cliSerial = hal.console;
 
     // load the default values of variables listed in var_info[]
     AP_Param::setup_sketch_defaults();
@@ -143,6 +148,20 @@ void Plane::loop()
     // call until scheduler.tick() is called again
     scheduler.run(loop_us);
 }
+	//Update Sony Camera Settings Using Serial Out
+
+void Plane::visca_control()
+{
+	     plane.visca.set_focus(g.focus_visca);
+		 plane.visca.set_ozoom(g.ozoom_visca);
+		 plane.visca.set_dzoom(g.dzoom_visca);
+		 plane.visca.set_exposure(g.exposure_visca);
+		 plane.visca.set_iris(g.iris_visca);
+		 plane.visca.set_aperture(g.aperture_visca);
+		 plane.visca.set_shutter(g.shutter_visca);
+
+}
+
 
 // update AHRS system
 void Plane::ahrs_update()
@@ -301,6 +320,101 @@ void Plane::obc_fs_check(void)
 void Plane::update_aux(void)
 {
     RC_Channel_aux::enable_aux_servos();
+}
+
+//Controlling Custom gimbal and Pelco D camera
+static int throttle=0;
+static int trigger=0;
+static int pd_failsafe=0; 
+static uint32_t last_timestamp_pd;
+static uint32_t last_timestamp_delay;
+int prev=1000;
+int change=0;
+int current_pwm=1500;
+        
+void delay_timer(int microsec)
+{
+	uint32_t tnow_delay = hal.scheduler->micros();
+	last_timestamp_delay=tnow_delay;
+
+	while(1)
+	{
+		tnow_delay = hal.scheduler->micros();
+		if(tnow_delay - last_timestamp_delay > microsec)
+			break;
+	}
+}        
+ 
+ void Gimbal_Control()
+ {
+	switch(g.aj4)
+	{
+		case 1: current_pwm+=10;
+				break;
+		
+		case -1: current_pwm-=10;
+				 break;
+		
+		case 0: break;	
+	}
+	
+	hal.rcout->write(4,current_pwm);
+	delay_timer(500);
+ }
+ 
+ 
+ void Zoom_Control()
+ {
+	change=(prev-g.aj3)/100;
+	prev=g.aj3;  
+	if(change!=0)
+	{
+		if(change>0)
+		{
+			hal.rcout->write(5,1556);
+			delay_timer(540*change);
+			hal.rcout->write(5,0);
+		}		
+		if(change<0)
+		{
+			hal.rcout->write(5,1406);
+			delay_timer(540*change);
+			hal.rcout->write(5,0); 
+		}
+	}
+ }
+
+//Payload Drop and asupporting functions
+double radians(double angle)
+{
+	return angle*(0.01744444);
+}
+
+double distcoord(int32_t clat1, int32_t clon1, AP_Int32 tlat2, AP_Int32 tlon2)
+{
+    double earth = 6371;
+    double lat1 = (double)clat1/10000000;
+    double lon1 = (double)clon1/10000000;
+    double lat2=  (double)tlat2/10000000;
+    double lon2=  (double)tlon2/10000000;
+
+    double dlat = radians(lat2 - lat1);
+    double dlon = radians(lon2 - lon1);
+    double a = sin(dlat / 2) * sin(dlat / 2) + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) * sin(dlon / 2);
+    double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    double dist = earth * c;
+    return dist;
+}
+
+void Plane::Payload_Drop()
+{
+	int trigger_pd=0, channel_pd = 6, pulse_pd = 1750;
+	
+	if( distcoord(current_loc.lat,current_loc.lng,g.pd_lat,g.pd_long)<((((float)g.pd_rad)/1000)) && !trigger_pd)  //12mt
+	{
+		hal.rcout->write(channel_pd, pulse_pd);
+		trigger_pd=1;
+	}
 }
 
 void Plane::one_second_loop()
